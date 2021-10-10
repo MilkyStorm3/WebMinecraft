@@ -11,18 +11,25 @@ interface CameraSettings {
 
 
 export class Camera {
-    private m_projectionMatrix: Matrix4x4;
+    private m_projectionMatrix: Matrix4x4;  
 
     constructor(settings: CameraSettings, public position: Float32Vector3 = new Vector3(0,0,0)) {
         this.m_projectionMatrix = Matrix4.perspective(settings);
     }
 
+
+    public m_cameraTarget = new Vector3(0,0,0); //? we assume that the camera is always looking at the origin of the coordinate system
+    public cameraDirection = new Vector3(0,0,1); //? direction
+    public cameraUp = new Vector3(0,1,0);
+    
     public GetPvMatrix(): Matrix4x4 {
+        
+        // let mtx = Matrix4.lookAt(this.position,this.m_cameraTarget,new Vector3(0,1,0));
+      
+        //! lookat = position + front-direction
+        let mtx = Matrix4.lookAt(this.position,this.position.add(this.cameraDirection), this.cameraUp);
 
-        //Camera trasformation matrix
-        let viewMatrix = Matrix4.identity().translate(this.position.x, this.position.y,this.position.z);
-        return this.m_projectionMatrix.mulByMatrix4x4(viewMatrix);
-
+        return this.m_projectionMatrix.mulByMatrix4x4(mtx);
     }
 }
 

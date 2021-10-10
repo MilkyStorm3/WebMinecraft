@@ -6,8 +6,9 @@ import { RendererCommands } from "./Core/Graphics/Renderer"
 import { Camera } from "./Core/Graphics/Camera"
 import { Texture } from "./Core/Graphics/Texture"
 
-import { Vector3, Vector4, Matrix4, Quaternion } from 'matrixgl';
+import { Vector3, Vector4, Matrix4, Quaternion, Float32Vector3 } from 'matrixgl';
 
+const log = document.querySelector("#log");
 
 var vertices = [
     -0.5, -0.5, -0.5,
@@ -101,7 +102,7 @@ shader.Bind();
 /*==================== MATRIX ====================== */
 
 let camera = new Camera({
-    fovYRadian: ToRadian(40),
+    fovYRadian: ToRadian(60),
     aspectRatio: canvas.width / canvas.height,
     near: 1,
     far: 100
@@ -137,6 +138,7 @@ var mouseUp = function (e: any) {
     drag = false;
 };
 
+
 var mouseMove = function (e: any) {
     if (!drag) return false;
     dX = (e.pageX - old_x) * 2 * Math.PI / canvas.width,
@@ -145,8 +147,13 @@ var mouseMove = function (e: any) {
     PHI += dY;
     old_x = e.pageX;
     old_y = e.pageY;
+
+
+
     e.preventDefault();
 };
+
+
 
 canvas.addEventListener("mousedown", mouseDown, false);
 canvas.addEventListener("mouseup", mouseUp, false);
@@ -161,6 +168,7 @@ var THETA = 0,
 var time_old = 0;
 
 var animate = function (time: number) {
+
     var dt = time - time_old;
 
     if (!drag) {
@@ -168,10 +176,17 @@ var animate = function (time: number) {
         THETA += dX, PHI += dY;
     }
 
-    let modelMatrix = Matrix4.identity();
+    let modelMatrix2 = Matrix4.identity().translate(-1, 0, 0);
+    modelMatrix2 = modelMatrix2.rotateX(PHI);
+    modelMatrix2 = modelMatrix2.rotateY(THETA);
 
+    let modelMatrix = Matrix4.identity().translate(1.2, 0, 2);
     modelMatrix = modelMatrix.rotateX(PHI);
     modelMatrix = modelMatrix.rotateY(THETA);
+
+    let modelMatrix3 = Matrix4.identity().scale(0.2, 0.2, 0.2);
+    modelMatrix3 = modelMatrix3.rotateX(0.7);
+    modelMatrix3 = modelMatrix3.rotateY(0.2);
 
     time_old = time;
     gl.enable(gl.DEPTH_TEST);
@@ -188,6 +203,17 @@ var animate = function (time: number) {
     ib.Bind();
 
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+    //cube2
+    shader.SetUniformMat4("PVmatrix", camera.GetPvMatrix().values);
+    shader.SetUniformMat4("Mmatrix", modelMatrix2.values);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+    //cube3
+    shader.SetUniformMat4("PVmatrix", camera.GetPvMatrix().values);
+    shader.SetUniformMat4("Mmatrix", modelMatrix3.values);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
 
     window.requestAnimationFrame(animate);
 }
