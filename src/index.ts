@@ -5,62 +5,19 @@ import { Shader } from "./Core/Graphics/Shader"
 import { RendererCommands } from "./Core/Graphics/Renderer"
 import { Camera } from "./Core/Graphics/Camera"
 import { Texture } from "./Core/Graphics/Texture"
+import { TileMap } from "./Core/Graphics/TileMap"
+import {Cube} from "./Core/Graphics/Cube"
 
 import { Vector3, Vector4, Matrix4, Quaternion, Float32Vector3 } from 'matrixgl';
 
 const log = document.querySelector("#log");
 
-var vertices = [
-    -0.5, -0.5, -0.5,
-    0.5, -0.5, -0.5,
-    0.5, 0.5, -0.5,
-    -0.5, 0.5, -0.5,
-    -0.5, -0.5, 0.5,
-    0.5, -0.5, 0.5,
-    0.5, 0.5, 0.5,
-    -0.5, 0.5, 0.5,
-    -0.5, -0.5, -0.5,
-    -0.5, 0.5, -0.5,
-    -0.5, 0.5, 0.5,
-    -0.5, -0.5, 0.5,
-    0.5, -0.5, -0.5,
-    0.5, 0.5, -0.5,
-    0.5, 0.5, 0.5,
-    0.5, -0.5, 0.5,
-    -0.5, -0.5, -0.5,
-    -0.5, -0.5, 0.5,
-    0.5, -0.5, 0.5,
-    0.5, -0.5, -0.5,
-    -0.5, 0.5, -0.5,
-    -0.5, 0.5, 0.5,
-    0.5, 0.5, 0.5,
-    0.5, 0.5, -0.5, //12 verticies
-];
-
-var colors = [
-    5, 3, 7, 5, 3, 7, 5, 3, 7, 5, 3, 7,
-    1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3,
-    0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
-    1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-    1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0,
-    0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 //color of each wall
-];
-
-var indices = [
-    0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
-    8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
-    16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23 //36
-];
+    
+let tileMap = new TileMap(1024, 416, 32);
+// let tile = tileMap.GetTile(7,8);
+let tile = tileMap.GetTile(2,0);
 
 
-let vb = new VertexBuffer();
-vb.UploadData(vertices);
-
-let cb = new VertexBuffer();
-cb.UploadData(colors);
-
-let ib = new IndexBuffer();
-ib.UploadData(indices);
 
 /*=================== SHADERS =================== */
 
@@ -68,34 +25,38 @@ let vertCode =
     `attribute vec3 position;
     uniform mat4 PVmatrix;
     uniform mat4 Mmatrix;
-    attribute vec3 color;
-    varying vec3 vColor;
+    // attribute vec3 color;
+    attribute vec2 tex;
+    // varying vec3 vColor;
+    varying vec2 vTex;
     void main(void) { 
     gl_Position = PVmatrix*Mmatrix*vec4(position, 1.);
-    vColor = color;
+    // vColor = color;
+    vTex = tex;
     }`;
 
 let fragCode =
     `
     precision mediump float;
-    varying vec3 vColor;
+    // varying vec3 vColor;
+    varying vec2 vTex;
+    uniform sampler2D texId;
     void main(void) {
-    gl_FragColor = vec4(vColor, 1.);
+    // gl_FragColor = vec4(vColor, 1.);
+    // gl_FragColor = vec4(1.0,1.0,1.0, 1.);
+    gl_FragColor = texture2D(texId,vTex);
     }`;
 
 let shader = new Shader();
 shader.Compile(vertCode, fragCode);
 
+let texture = new Texture();
+// texture.Load("https://i.imgur.com/D9JxVTq.png");
+texture.Load("https://i.imgur.com/afT7RAI.png");
+
 /*======== Associating attributes to vertex shader =====*/
 
-vb.Bind();
-vb.layout.Add(LayoutAttribute.vec3f);
-vb.layout.Apply();
 
-cb.Bind();
-let _color = gl.getAttribLocation(shader.GetId(), "color");
-cb.layout.Add(LayoutAttribute.vec3f);
-cb.layout.Apply(_color);
 
 shader.Bind();
 
@@ -107,7 +68,7 @@ let camera = new Camera({
     near: 1,
     far: 100
 },
-    new Vector3(0, 0, -10)
+    new Vector3(0, 0, -6)
 );
 
 
@@ -167,6 +128,16 @@ var THETA = 0,
     PHI = 0;
 var time_old = 0;
 
+let c1:Cube = new Cube();
+let c2:Cube = new Cube();
+let c3:Cube = new Cube();
+
+c1.SetTexture(tile);
+c2.SetTexture(tile);
+c3.SetTexture(tile);
+
+texture.Bind();
+
 var animate = function (time: number) {
 
     var dt = time - time_old;
@@ -200,19 +171,18 @@ var animate = function (time: number) {
     shader.SetUniformMat4("PVmatrix", camera.GetPvMatrix().values);
     shader.SetUniformMat4("Mmatrix", modelMatrix.values);
 
-    ib.Bind();
-
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
-
+    c1.Draw();
+    
     //cube2
     shader.SetUniformMat4("PVmatrix", camera.GetPvMatrix().values);
     shader.SetUniformMat4("Mmatrix", modelMatrix2.values);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    c2.Draw();
+
 
     //cube3
     shader.SetUniformMat4("PVmatrix", camera.GetPvMatrix().values);
     shader.SetUniformMat4("Mmatrix", modelMatrix3.values);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    c3.Draw();
 
 
     window.requestAnimationFrame(animate);

@@ -5,6 +5,7 @@ import { gl, IsPowerOf2 } from "../Setup"
 export class Texture {
     private m_GlTexture:WebGLTexture;
     private m_image:HTMLImageElement;
+    private m_fn:Function;
 
     constructor() {
         this.m_GlTexture = gl.createTexture();
@@ -22,6 +23,8 @@ export class Texture {
         const srcType = gl.UNSIGNED_BYTE;
         const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
         gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, width, height, border, srcFormat, srcType, pixel);
+
+        this.m_fn = () =>{}
 
 
         this.m_image.onload = () => {
@@ -41,6 +44,7 @@ export class Texture {
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             }
+            this.m_fn();
         };
 
     }
@@ -55,5 +59,9 @@ export class Texture {
 
     public GetId():WebGLTexture{
         return this.m_GlTexture;
+    }
+
+    public AfterLoad(fn:Function){
+        this.m_fn =fn;
     }
 }
