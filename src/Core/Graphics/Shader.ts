@@ -61,6 +61,10 @@ export class Shader {
         gl.uniformMatrix4fv(this.GetUniformLocation(name), false, mat);
     }
 
+    public SetUniformInt(name: string, num: number) {
+        gl.uniform1i(this.GetUniformLocation(name), num);
+    }
+
     //todo add deletnion afterwords
 
 }
