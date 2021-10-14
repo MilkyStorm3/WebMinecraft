@@ -7,6 +7,7 @@ import { Camera, ControlKeyMap } from "./Core/Graphics/Camera"
 import { Texture } from "./Core/Graphics/Texture"
 import { TileMap } from "./Core/Graphics/TileMap"
 import { Cube } from "./Core/Graphics/Cube"
+import { DrawCrosshair } from "./Core/Graphics/Crosshair"
 
 import { Vector3, Vector4, Matrix4, Quaternion, Float32Vector3, Vector2 } from 'matrixgl';
 
@@ -15,6 +16,7 @@ Init();
 
 let tileMap = new TileMap(1024, 416, 32);
 let tileLamp = tileMap.GetTile(7, 8);
+let tileLampOff = tileMap.GetTile(6, 8);
 let tile = tileMap.GetTile(2, 0);
 
 
@@ -61,27 +63,16 @@ window.addEventListener('wheel', ({ deltaY }) => {
 
 
 /*================= Mouse events ======================*/
-var AMORTIZATION = 0.95;
-var drag = false;
-var old_x: any, old_y: any;
-var dX = 0, dY = 0;
-
-// var mouseDown = function (e: any) {
-//     drag = true;
-//     old_x = e.pageX, old_y = e.pageY;
-//     e.preventDefault();
-//     return false;
-// };
-
-// var mouseUp = function (e: any) {
-//     drag = false;
-// };
+let AMORTIZATION = 0.95;
+let drag = false;
+let old_x: any, old_y: any;
+let dX = 0, dY = 0;
 
 let X = 0, prevX = 0;
 let Y = 0, prevY = 0;
 let yaw = 180, pitch = 0;
 
-var mouseMove = function (e: any) {
+let mouseMove = function (e: any) {
 
     let xOffset = X - prevX;
     let yOffset = prevY - Y;
@@ -90,8 +81,6 @@ var mouseMove = function (e: any) {
 
     yaw += xOffset * sensitivity;
     pitch += yOffset * sensitivity;
-
-    
 
     if (pitch > pitchLimit)
         pitch = pitchLimit;
@@ -105,56 +94,16 @@ var mouseMove = function (e: any) {
     dir.z = Math.sin(ToRadian(yaw)) * Math.cos(ToRadian(pitch));
     camera.cameraDirection = dir.normalize();
 
-
-    // if (xOffset > 0) {
-    //     //left
-    //     // console.log("left"); 
-    // }
-    // if (xOffset < 0) {
-    //     //right
-
-    //     // console.log("right");
-    // }
-
-    // if (yOffset > 0) {
-    //     //up
-
-    //     // console.log("up");
-    // }
-    // if (yOffset < 0) {
-    //     //down
-
-    //     // console.log("down");
-    // }
-    // navigator.pointer.isLocked
-
     prevX = X;
     prevY = Y;
 
-
-    //cube rotation
     X += e.movementX;
     Y += e.movementY;
-
-    // if (!drag) return false;
-    // dX = (e.pageX - old_x) * 2 * Math.PI / canvas.width,
-    //     dY = (e.pageY - old_y) * 2 * Math.PI / canvas.height;
-    // // THETA += dX;
-    // PHI += dY;
-
-
-    // old_x = e.pageX;
-    // old_y = e.pageY;
 
     e.preventDefault();
 };
 
-// canvas.addEventListener("mousedown", mouseDown, false);
-// canvas.addEventListener("mouseup", mouseUp, false);
-// canvas.addEventListener("mouseout", mouseUp, false);
-// canvas.addEventListener("mousemove", mouseMove, false);
 
-// let key: string = "NULL";
 let keyMap: ControlKeyMap = {
 
     W: false,
@@ -166,13 +115,6 @@ let keyMap: ControlKeyMap = {
 }
 
 document.addEventListener('pointerlockerror', event => {
-    // console.log("free by error");
-    // document.exitPointerLock();
-    // canvas.requestPointerLock();
-    // canvas.removeEventListener("mousemove", mouseMove);
-    // document.exitPointerLock();
-
-    // event.preventDefault();
 
 }, false);
 
@@ -190,8 +132,8 @@ document.addEventListener('pointerlockchange', event => {
 
 }, false);
 
-let SetKeyState = (key:string, val:boolean) =>{
-   switch (key) {
+let SetKeyState = (key: string, val: boolean) => {
+    switch (key) {
         case "W": keyMap.W = val; break;
         case "S": keyMap.S = val; break;
         case "A": keyMap.A = val; break;
@@ -206,17 +148,13 @@ let SetKeyState = (key:string, val:boolean) =>{
 window.addEventListener("keydown", event => {
 
     let key = event.key.toUpperCase();
-    console.log(key);
 
-    // if (key == "F5" || key == "ESCAPE") {
-    //     document.exitPointerLock();
-    // }
+    if (key == "F12") {
+        return false;
+    }
     SetKeyState(key, true);
- 
 
     event.preventDefault();
-
-
 
 });
 
@@ -236,47 +174,53 @@ canvas.onclick = () => {
 }
 
 
-
 /*=================== Drawing =================== */
 
-var THETA = 0,
-    PHI = 0;
-var time_old = 0;
+let time_old = 0;
 
-let c1: Cube = new Cube();
-let blah: Cube = new Cube();
-let c3: Cube = new Cube();
+let Blocks: Cube[] = [];
 
-c1.SetTexture(tile);
-blah.SetTexture(tileLamp);
-c3.SetTexture(tile);
+document.addEventListener("mousedown", ev => {
 
+
+    Blocks.forEach(block => {
+
+        block.Intersects(camera.GetCameraRay());
+
+        block.SetTexture(tile);
+
+    });
+});
 
 texture.Bind();
 
-var animate = function (time: number) {
+for (let i = 0; i < 10; i++) {
+    for (let j = 0; j < 10; j++) {
+        let block = new Cube();
+        block.translation = new Vector3(1.2 + i, j, 2);
+        Blocks.push(block);
+    }
+}
 
-    var dt = time - time_old;
+let animate = function (time: number) {
 
-    /* if (!drag) {
-        dX *= AMORTIZATION, dY *= AMORTIZATION;
-        THETA += dX, PHI += dY;
-    } */
+    let dt = time - time_old;
 
-    c1.ResetTransform();
-    c1.Translate(1.2, 0, 2);
-    c1.RotateX(PHI);
-    c1.RotateY(THETA);
 
-    blah.ResetTransform();
-    blah.Translate(-1, 0, 0);
-    blah.RotateX(PHI);
-    blah.RotateY(THETA);
+    Blocks.forEach(cube => {
 
-    c3.ResetTransform();
-    c3.Scale(0.2, 0.2, 0.2);
-    c3.RotateX(0.7);
-    c3.RotateY(0.2);
+        let i = cube.Intersects(camera.GetCameraRay());
+
+        if (i) {
+            cube.SetTexture(tileLamp);
+
+        }
+        else {
+            cube.SetTexture(tileLampOff);
+        }
+    });
+    // console.log(i);
+
 
 
     time_old = time;
@@ -286,9 +230,9 @@ var animate = function (time: number) {
     RendererCommands.UseViewPort();
     RendererCommands.Clear();
 
-    c1.Draw(camera);
-    blah.Draw(camera);
-    c3.Draw(camera);
+    Blocks.forEach(cube => cube.Draw(camera));
+
+    DrawCrosshair();
 
 
     window.requestAnimationFrame(animate);

@@ -57,12 +57,16 @@ export class Shader {
         return location;
     }
 
-    public SetUniformMat4(name: string, mat: Float32Array) {
+    public SetUniformMat4(name: string, mat: Float32Array) :void{
         gl.uniformMatrix4fv(this.GetUniformLocation(name), false, mat);
     }
 
-    public SetUniformInt(name: string, num: number) {
+    public SetUniformInt(name: string, num: number) :void{
         gl.uniform1i(this.GetUniformLocation(name), num);
+    }
+
+    public GetAttribLocation(name:string) :number{
+        return gl.getAttribLocation(this.m_programId, name);
     }
 
     //todo add deletnion afterwords

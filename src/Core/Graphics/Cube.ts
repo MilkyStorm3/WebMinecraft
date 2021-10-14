@@ -3,8 +3,9 @@ import { Texture } from "./Texture";
 import { VertexBuffer, IndexBuffer, LayoutAttribute } from "./Buffer";
 import { gl } from "../Setup";
 import { Shader } from "./Shader";
-import { Matrix4} from "matrixgl";
+import { Float32Vector2, Float32Vector3, Float32Vector4, Matrix4, Matrix4x4, Vector2, Vector3, Vector4 } from "matrixgl";
 import { Camera } from "./Camera";
+import { Ray } from "./Ray";
 
 const UnitCubeVertexData = [
 
@@ -121,7 +122,7 @@ function GenSymetricTextureCoordinates(tile: Tile) {
     ];
 }
 
-let vertCode =
+const vertCode =
     `attribute vec3 position;
     uniform mat4 CameraMatrix;
     uniform mat4 Mmatrix;
@@ -135,7 +136,7 @@ let vertCode =
     vTex = tex;
     }`;
 
-let fragCode =
+const fragCode =
     `
     precision mediump float;
     // varying vec3 vColor;
@@ -147,7 +148,12 @@ let fragCode =
     gl_FragColor = texture2D(texId,vTex);
     }`;
 
+interface BoundingBox {
 
+    min: Float32Vector3,
+    max: Float32Vector3
+
+}
 
 export class Cube {
 
@@ -158,6 +164,8 @@ export class Cube {
 
     public m_tb: VertexBuffer;
     public m_modelMatrix = Matrix4.identity();
+
+    public translation = new Vector3(0, 0, 0);
 
 
     constructor() {
@@ -176,9 +184,9 @@ export class Cube {
 
             Cube.s_vb.layout.Add(LayoutAttribute.vec3f);
             Cube.s_vb.Bind();
-            Cube.s_vb.layout.Apply();
 
             Cube.s_Shader.Compile(vertCode, fragCode);
+            Cube.s_vb.layout.Apply(Cube.s_Shader.GetAttribLocation("position"));
 
             Cube.s_initialized = true;
 
@@ -188,7 +196,7 @@ export class Cube {
         this.m_tb.layout.Add(LayoutAttribute.vec2f);
 
         this.m_tb.Bind();
-        this.m_tb.layout.Apply(1);
+        this.m_tb.layout.Apply(Cube.s_Shader.GetAttribLocation("tex"));
 
     }
 
@@ -200,15 +208,19 @@ export class Cube {
 
     public Draw(camera: Camera): void {
 
-        Cube.s_vb.Bind();
+
+        this.ResetTransform();
+    Cube.s_vb.Bind();
         Cube.s_ib.Bind();
         Cube.s_Shader.Bind();
-
+        Cube.s_vb.layout.Apply(Cube.s_Shader.GetAttribLocation("position"));
 
         this.m_tb.Bind();
         this.m_tb.layout.Apply(1);
 
         Cube.s_Shader.SetUniformInt("sampler2D", 0);
+
+        this.m_modelMatrix = this.m_modelMatrix.translate(this.translation.x, this.translation.y, this.translation.z);
 
 
         let len = UnitCubeVertexData.length;
@@ -226,24 +238,102 @@ export class Cube {
         return Cube.s_Shader;
     }
 
-    public RotateX(radian: number): void {
-        this.m_modelMatrix = this.m_modelMatrix.rotateX(radian);
-    }
-
-    public RotateY(radian: number): void {
-        this.m_modelMatrix = this.m_modelMatrix.rotateY(radian);
-    }
-
-    public Translate(tx: number, ty: number, tz: number): void {
-        this.m_modelMatrix = this.m_modelMatrix.translate(tx, ty, tz);
-    }
 
     public ResetTransform(): void {
         this.m_modelMatrix = Matrix4.identity();
     }
 
-    public Scale(x: number, y: number, z: number) {
-        this.m_modelMatrix = this.m_modelMatrix.scale(x, y, z);
+    private static MulVectorByMatrix(vec: Float32Vector4, mtx: Matrix4x4): Float32Vector4 {
+
+        let mat = mtx.values;
+
+        let x = mat[0] * vec.x + mat[1] * vec.y + mat[2] * vec.z + mat[3] * vec.w;
+        let y = mat[4] * vec.x + mat[5] * vec.y + mat[6] * vec.z + mat[7] * vec.w;
+        let z = mat[8] * vec.x + mat[9] * vec.y + mat[10] * vec.z + mat[11] * vec.w;
+        let w = mat[12] * vec.x + mat[13] * vec.y + mat[14] * vec.z + mat[15] * vec.w;
+
+        return new Vector4(x, y, z, w);
+    }
+
+    private GetBoundaries(): BoundingBox {
+        let t = this.translation;
+
+        let max = new Vector4(0.5 + t.x, 0.5 + t.y, 0.5 + t.z, 1);
+        let min = new Vector4(-0.5 + t.x, -0.5 + t.y, -0.5 + t.z, 1);
+
+        max = Cube.MulVectorByMatrix(max, this.m_modelMatrix);
+        min = Cube.MulVectorByMatrix(min, this.m_modelMatrix);
+
+        return {
+            max: new Vector3(max.x, max.y, max.z),
+            min: new Vector3(min.x, min.y, min.z)
+        }
+    }
+
+    private static Intersect(ray: Ray, box: BoundingBox): boolean {
+
+        let { min, max } = box;
+
+        let tmin = (min.x - ray.origin.x) / ray.direction.x;
+        let tmax = (max.x - ray.origin.x) / ray.direction.x;
+
+        if (tmin > tmax) {
+            [tmin, tmax] = [tmax, tmin];
+        }
+
+        let tymin = (min.y - ray.origin.y) / ray.direction.y;
+        let tymax = (max.y - ray.origin.y) / ray.direction.y;
+
+        if (tymin > tymax) {
+            [tymin, tymax] = [tymax, tymin];
+        }
+
+        if ((tmin > tymax) || (tymin > tmax))
+            return false;
+
+        if (tymin > tmin)
+            tmin = tymin;
+
+        if (tymax < tmax)
+            tmax = tymax;
+
+        let tzmin = (min.z - ray.origin.z) / ray.direction.z;
+        let tzmax = (max.z - ray.origin.z) / ray.direction.z;
+
+        if (tzmin > tzmax) {
+            [tzmax, tzmin] = [tzmin, tzmax];
+        }
+
+
+
+        if ((tmin > tzmax) || (tzmin > tmax))
+            return false;
+
+        if (tzmin > tmin)
+            tmin = tzmin;
+
+        if (tzmax < tmax)
+            tmax = tzmax;
+
+        return true;
+
+    }
+
+    public Intersects(ray: Ray): boolean {
+
+        return Cube.Intersect(ray, this.GetBoundaries());
+
+    }
+
+
+    public GetLookAtSide(camera: Camera): Float32Vector3 {
+
+        let ray = camera.GetCameraRay();
+
+        throw " GetLookAtSide() not implemented";
+
+        return new Vector3(0,0,0);
+        
     }
 
 
