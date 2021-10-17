@@ -1,7 +1,7 @@
 import { Tile } from "./TileMap";
 import { Texture } from "./Texture";
 import { VertexBuffer, IndexBuffer, LayoutAttribute } from "./Buffer";
-import { gl } from "../Setup";
+import { gl, Init } from "../Setup";
 import { Shader } from "./Shader";
 import { Float32Vector2, Float32Vector3, Float32Vector4, Matrix4, Matrix4x4, Vector2, Vector3, Vector4 } from "matrixgl";
 import { Camera } from "./Camera";
@@ -174,7 +174,7 @@ export class Cube {
 
             let IbData: number[] = [];
 
-            for (let index = 0; index < UnitCubeVertexData.length; index++) {
+            for (let index = 0; index < UnitCubeVertexData.length / 3; index++) {
                 IbData.push(index);
             }
             console.log("initialized");
@@ -210,7 +210,7 @@ export class Cube {
 
 
         this.ResetTransform();
-    Cube.s_vb.Bind();
+        Cube.s_vb.Bind();
         Cube.s_ib.Bind();
         Cube.s_Shader.Bind();
         Cube.s_vb.layout.Apply(Cube.s_Shader.GetAttribLocation("position"));
@@ -223,7 +223,7 @@ export class Cube {
         this.m_modelMatrix = this.m_modelMatrix.translate(this.translation.x, this.translation.y, this.translation.z);
 
 
-        let len = UnitCubeVertexData.length;
+        let len = UnitCubeVertexData.length / 3;
 
         Cube.s_Shader.SetUniformMat4("Mmatrix", this.m_modelMatrix.values);
         Cube.s_Shader.SetUniformMat4("CameraMatrix", camera.GetPvMatrix().values);
@@ -330,10 +330,79 @@ export class Cube {
 
         let ray = camera.GetCameraRay();
 
-        throw " GetLookAtSide() not implemented";
+        // throw " GetLookAtSide() not implemented";
+
+        // return new Vector3(0,0,0);
+
+        // let x = 0, y = 0, z = 0;
+
+
+        // let { min, max } = this.GetBoundaries();
+
+        // let tmin = (min.x - ray.origin.x) / ray.direction.x;
+        // let tmax = (max.x - ray.origin.x) / ray.direction.x;
+
+        // if (tmin > tmax) {
+        //     [tmin, tmax] = [tmax, tmin];
+        // }
+        // x = tmin;
+
+        // let tymin = (min.y - ray.origin.y) / ray.direction.y;
+        // let tymax = (max.y - ray.origin.y) / ray.direction.y;
+
+        // if (tymin > tymax) {
+        //     [tymin, tymax] = [tymax, tymin];
+        // }
+        // y = tymin;
+
+        // if ((tmin > tymax) || (tymin > tmax))
+        //     return new Vector3(Infinity, Infinity, Infinity);
+
+        // if (tymin > tmin)
+        //     tmin = tymin;
+
+        // if (tymax < tmax)
+        //     tmax = tymax;
+
+        // let tzmin = (min.z - ray.origin.z) / ray.direction.z;
+        // let tzmax = (max.z - ray.origin.z) / ray.direction.z;
+
+        // if (tzmin > tzmax) {
+        //     [tzmax, tzmin] = [tzmin, tzmax];
+        // }
+
+        // z = tzmin;
+
+        // if ((tmin > tzmax) || (tzmin > tmax))
+        // return new Vector3(Infinity, Infinity, Infinity);
+
+
+        // if (tzmin > tmin)
+        //     tmin = tzmin;
+
+        // if (tzmax < tmax)
+        //     tmax = tzmax;
+
+        // return new Vector3(x,y,z);
+
+
+        let topPanel = {
+            min: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z),
+            max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z)
+        };
+        
+        let leftPanel = {
+            min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+            max: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z)
+        }
+
+        let frontPanel = {
+            min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+            max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z)
+        }
+        
 
         return new Vector3(0,0,0);
-        
     }
 
 

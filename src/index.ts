@@ -179,7 +179,7 @@ canvas.onclick = () => {
 let time_old = 0;
 
 let Blocks: Cube[] = [];
-
+/* 
 document.addEventListener("mousedown", ev => {
 
 
@@ -191,16 +191,17 @@ document.addEventListener("mousedown", ev => {
 
     });
 });
-
+ */
 texture.Bind();
 
-for (let i = 0; i < 10; i++) {
-    for (let j = 0; j < 10; j++) {
+// for (let i = 0; i < 10; i++) {
+    // for (let j = 0; j < 10; j++) {
         let block = new Cube();
-        block.translation = new Vector3(1.2 + i, j, 2);
+        // block.translation = new Vector3(1.2 + i, j, 2);
+        // block.translation = new Vector3(1.2, 0, 2);
         Blocks.push(block);
-    }
-}
+    // }
+// }
 
 let animate = function (time: number) {
 
@@ -218,6 +219,10 @@ let animate = function (time: number) {
         else {
             cube.SetTexture(tileLampOff);
         }
+
+        // let s = cube.GetLookAtSide(camera);
+        // console.log(s.toString());
+
     });
     // console.log(i);
 
