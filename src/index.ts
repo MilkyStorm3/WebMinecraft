@@ -1,42 +1,65 @@
-import { Vector4Base } from "matrixgl/lib/vector_base";
 import { canvas, gl, ToRadian, Init } from "./Core/Setup"
-import { VertexBuffer, IndexBuffer, LayoutAttribute } from "./Core/Graphics/Buffer"
-import { Shader } from "./Core/Graphics/Shader"
 import { RendererCommands } from "./Core/Graphics/Renderer"
 import { Camera, ControlKeyMap } from "./Core/Graphics/Camera"
 import { Texture } from "./Core/Graphics/Texture"
 import { TileMap } from "./Core/Graphics/TileMap"
-import { Cube } from "./Core/Graphics/Cube"
+import { Cube, LookAtSide } from "./Core/Graphics/Cube"
 import { DrawCrosshair } from "./Core/Graphics/Crosshair"
+import { MyMath } from "./Core/Maths"
 
-import { Vector3, Vector4, Matrix4, Quaternion, Float32Vector3, Vector2 } from 'matrixgl';
+import { Vector3, Vector4, Matrix4, Quaternion, Float32Vector3, Vector2, Matrix4x4 } from 'matrixgl';
 
 const log = document.querySelector("#log");
+
 Init();
 
 let tileMap = new TileMap(1024, 416, 32);
-let tileLamp = tileMap.GetTile(7, 8);
-let tileLampOff = tileMap.GetTile(6, 8);
-let tile = tileMap.GetTile(2, 0);
 
+let texturesAvailble = [
+    tileMap.GetTile(2, 0), //grass
+    tileMap.GetTile(6, 8),//lamp off
+    tileMap.GetTile(7, 8), //lamp on
+    tileMap.GetTile(23, 0),
+    tileMap.GetTile(24, 0),
+    tileMap.GetTile(25, 0),
+    tileMap.GetTile(26, 0),
+    tileMap.GetTile(27, 0),
+    tileMap.GetTile(28, 0),
+    tileMap.GetTile(29, 0),
+    tileMap.GetTile(17, 1),
+    tileMap.GetTile(16, 1),
+    tileMap.GetTile(15, 1),
+    tileMap.GetTile(14, 1),
+    tileMap.GetTile(9, 1),
+    tileMap.GetTile(8, 1),
+    tileMap.GetTile(7, 1),
+    tileMap.GetTile(6, 1),
+    tileMap.GetTile(5, 1),
+    tileMap.GetTile(4, 1),
+    tileMap.GetTile(3, 1),
+    tileMap.GetTile(2, 1),
+    tileMap.GetTile(1, 1),
+    tileMap.GetTile(0, 1),
+    tileMap.GetTile(8, 3),
+    tileMap.GetTile(9, 3),
+    tileMap.GetTile(10, 3),
+    tileMap.GetTile(11, 3),
+    tileMap.GetTile(12, 3),
+    tileMap.GetTile(13, 3),
+    tileMap.GetTile(14, 3),
+    tileMap.GetTile(15, 3),
+    tileMap.GetTile(16, 3)
 
+];
 
-/*=================== SHADERS =================== */
-
+let curAcctiveIdx = 2;
 
 
 
 let texture = new Texture();
-// texture.Load("https://i.imgur.com/D9JxVTq.png");
 texture.Load("https://i.imgur.com/afT7RAI.png");
 
-/*======== Associating attributes to vertex shader =====*/
-
-
-
-/*==================== MATRIX ====================== */
 let fov = 60;
-
 let camera = new Camera({
     fovYRadian: ToRadian(fov),
     aspectRatio: canvas.width / canvas.height,
@@ -49,24 +72,19 @@ camera.cameraSpeed = 0.1;
 
 window.addEventListener('wheel', ({ deltaY }) => {
 
-    if (fov < 45 && fov > 1) {
-        fov += deltaY;
-        camera.SetFov(fov);
+
+    if (deltaY > 0) {
+        curAcctiveIdx++;
     }
-    // if (deltaY > 0) {
-
-    // }
-    // else if (deltaY < 0) {
-
-    // }
+    else if (deltaY < 0) {
+        if (curAcctiveIdx == 0) {
+            curAcctiveIdx = texturesAvailble.length - 1;
+            return false;
+        }
+        curAcctiveIdx--;
+    }
 });
 
-
-/*================= Mouse events ======================*/
-let AMORTIZATION = 0.95;
-let drag = false;
-let old_x: any, old_y: any;
-let dX = 0, dY = 0;
 
 let X = 0, prevX = 0;
 let Y = 0, prevY = 0;
@@ -160,9 +178,7 @@ window.addEventListener("keydown", event => {
 
 
 window.addEventListener("keyup", ev => {
-
     SetKeyState(ev.key.toUpperCase(), false);
-
 });
 
 canvas.requestPointerLock = canvas.requestPointerLock;
@@ -174,71 +190,134 @@ canvas.onclick = () => {
 }
 
 
-/*=================== Drawing =================== */
-
 let time_old = 0;
 
 let Blocks: Cube[] = [];
-/* 
-document.addEventListener("mousedown", ev => {
+
+function PickClosest(cubes: Cube[]) {
+    let closest = cubes[0];
+    let posMin = MyMath.CalcDistance3D(closest.translation, camera.position);
+
+    for (let i = 0; i < cubes.length; i++) {
+        const el = cubes[i];
+        const posCur = MyMath.CalcDistance3D(camera.position, el.translation);
+
+        if (posMin > posCur) {
+
+            posMin = posCur;
+            closest = el;
+        }
+    }
+
+    return closest;
+}
+
+// function name(cubes:Cube[]) {}
+
+function GetOffsetVector(side: LookAtSide): Float32Vector3 {
+
+    if (side == LookAtSide.Top) return new Vector3(0, 1, 0);
+    if (side == LookAtSide.Bottom) return new Vector3(0, -1, 0);
+    if (side == LookAtSide.Left) return new Vector3(1, 0, 0);
+    if (side == LookAtSide.Right) return new Vector3(-1, 0, 0);
+    if (side == LookAtSide.Front) return new Vector3(0, 0, -1);
+    if (side == LookAtSide.Rear) return new Vector3(0, 0, 1);
+
+    return new Vector3(NaN, NaN, NaN);
+}
 
 
-    Blocks.forEach(block => {
+document.addEventListener("mousedown", function (ev) {
 
-        block.Intersects(camera.GetCameraRay());
+    //? 2 - right
+    //? 1 - wheel click
+    //? 0 - left
+    let cameraRay = camera.GetCameraRay();
 
-        block.SetTexture(tile);
+    let intersectingBlocks: Cube[] = [];
 
-    });
+    for (let i = 0; i < Blocks.length; i++) {
+        const element = Blocks[i];
+        if (element.Intersects(cameraRay)) {
+            intersectingBlocks.push(Blocks[i]);
+        }
+    }
+
+    if (!intersectingBlocks.length) return false;
+
+    const closestBlock = PickClosest(intersectingBlocks);
+
+    if (ev.button == 0) { //? left clock
+
+        if (Blocks.length <= 1) return false;
+
+        let idx = Blocks.findIndex(el => el == closestBlock);
+
+        if (idx > -1) {
+            Blocks.splice(idx, 1);
+        }
+
+    }
+
+    if (ev.button == 2) { //? right click
+
+
+        if (closestBlock.Intersects(camera.GetCameraRay())) {
+            let side = closestBlock.GetLookAtSide(camera);
+            let vec = GetOffsetVector(side);
+            let newBlock = new Cube();
+            newBlock.translation = closestBlock.translation.add(vec);
+            newBlock.SetTexture(texturesAvailble[curAcctiveIdx % texturesAvailble.length]);
+            Blocks.push(newBlock);
+
+        }
+    }
 });
- */
+
 texture.Bind();
 
-// for (let i = 0; i < 10; i++) {
-    // for (let j = 0; j < 10; j++) {
-        let block = new Cube();
-        // block.translation = new Vector3(1.2 + i, j, 2);
-        // block.translation = new Vector3(1.2, 0, 2);
-        Blocks.push(block);
-    // }
-// }
+{
+    let b = new Cube();
+    b.SetTexture(texturesAvailble[curAcctiveIdx % texturesAvailble.length]);
+    Blocks.push(b);
+}
+
+let scale = 0.2;
+let pickedBlockVisualizer = new Cube();
+pickedBlockVisualizer.m_modelMatrix = pickedBlockVisualizer.m_modelMatrix.rotateX(ToRadian(-45));
+pickedBlockVisualizer.m_modelMatrix = pickedBlockVisualizer.m_modelMatrix.rotateY(ToRadian(45));
+pickedBlockVisualizer.m_modelMatrix = pickedBlockVisualizer.m_modelMatrix.translate(3, -1.2, 0);
+pickedBlockVisualizer.m_modelMatrix = pickedBlockVisualizer.m_modelMatrix.scale(scale, scale, scale);
+
+let projection = Matrix4x4.perspective({
+    fovYRadian: ToRadian(fov),
+    aspectRatio: canvas.width / canvas.height,
+    near: 1,
+    far: 100
+});
+let view = Matrix4x4.lookAt(new Vector3(0, 0, 6), new Vector3(0, 0, 0), new Vector3(0, 1, 0));
+let vp = projection.mulByMatrix4x4(view);
 
 let animate = function (time: number) {
 
     let dt = time - time_old;
 
-
-    Blocks.forEach(cube => {
-
-        let i = cube.Intersects(camera.GetCameraRay());
-
-        if (i) {
-            cube.SetTexture(tileLamp);
-
-        }
-        else {
-            cube.SetTexture(tileLampOff);
-        }
-
-        // let s = cube.GetLookAtSide(camera);
-        // console.log(s.toString());
-
-    });
-    // console.log(i);
-
-
-
     time_old = time;
+
+    let matrix = camera.GetPvMatrix();
 
     camera.OnKey(keyMap);
 
     RendererCommands.UseViewPort();
     RendererCommands.Clear();
 
-    Blocks.forEach(cube => cube.Draw(camera));
+    Blocks.forEach(cube => cube.Draw(matrix));
 
     DrawCrosshair();
-
+    {
+        pickedBlockVisualizer.SetTexture(texturesAvailble[curAcctiveIdx % texturesAvailble.length]);
+        pickedBlockVisualizer.Draw(vp, pickedBlockVisualizer.m_modelMatrix);
+    }
 
     window.requestAnimationFrame(animate);
 }

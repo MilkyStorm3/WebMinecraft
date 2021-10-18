@@ -3,9 +3,10 @@ import { Texture } from "./Texture";
 import { VertexBuffer, IndexBuffer, LayoutAttribute } from "./Buffer";
 import { gl, Init } from "../Setup";
 import { Shader } from "./Shader";
-import { Float32Vector2, Float32Vector3, Float32Vector4, Matrix4, Matrix4x4, Vector2, Vector3, Vector4 } from "matrixgl";
+import { Float32Vector2, Float32Vector3, Float32Vector4, Matrix3x3, Matrix4, Matrix4x4, Vector2, Vector3, Vector4 } from "matrixgl";
 import { Camera } from "./Camera";
 import { Ray } from "./Ray";
+import { MyMath } from "../Maths"
 
 const UnitCubeVertexData = [
 
@@ -155,6 +156,17 @@ interface BoundingBox {
 
 }
 
+export enum LookAtSide {
+
+    None,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Front,
+    Rear
+}
+
 export class Cube {
 
     public static s_vb: VertexBuffer = new VertexBuffer();
@@ -206,10 +218,10 @@ export class Cube {
 
     }
 
-    public Draw(camera: Camera): void {
+    public Draw(cameraMatrix: Matrix4x4, modelMatrix:Matrix4x4 = Matrix4.identity()): void {
 
+        this.m_modelMatrix = modelMatrix;        
 
-        this.ResetTransform();
         Cube.s_vb.Bind();
         Cube.s_ib.Bind();
         Cube.s_Shader.Bind();
@@ -226,7 +238,7 @@ export class Cube {
         let len = UnitCubeVertexData.length / 3;
 
         Cube.s_Shader.SetUniformMat4("Mmatrix", this.m_modelMatrix.values);
-        Cube.s_Shader.SetUniformMat4("CameraMatrix", camera.GetPvMatrix().values);
+        Cube.s_Shader.SetUniformMat4("CameraMatrix", cameraMatrix.values);
         gl.drawElements(gl.TRIANGLES, len, gl.UNSIGNED_SHORT, 0);
 
         this.m_tb.UnBind();
@@ -238,31 +250,14 @@ export class Cube {
         return Cube.s_Shader;
     }
 
-
-    public ResetTransform(): void {
-        this.m_modelMatrix = Matrix4.identity();
-    }
-
-    private static MulVectorByMatrix(vec: Float32Vector4, mtx: Matrix4x4): Float32Vector4 {
-
-        let mat = mtx.values;
-
-        let x = mat[0] * vec.x + mat[1] * vec.y + mat[2] * vec.z + mat[3] * vec.w;
-        let y = mat[4] * vec.x + mat[5] * vec.y + mat[6] * vec.z + mat[7] * vec.w;
-        let z = mat[8] * vec.x + mat[9] * vec.y + mat[10] * vec.z + mat[11] * vec.w;
-        let w = mat[12] * vec.x + mat[13] * vec.y + mat[14] * vec.z + mat[15] * vec.w;
-
-        return new Vector4(x, y, z, w);
-    }
-
     private GetBoundaries(): BoundingBox {
         let t = this.translation;
 
         let max = new Vector4(0.5 + t.x, 0.5 + t.y, 0.5 + t.z, 1);
         let min = new Vector4(-0.5 + t.x, -0.5 + t.y, -0.5 + t.z, 1);
 
-        max = Cube.MulVectorByMatrix(max, this.m_modelMatrix);
-        min = Cube.MulVectorByMatrix(min, this.m_modelMatrix);
+        max = MyMath.MulVectorByMatrix(max, this.m_modelMatrix);
+        min = MyMath.MulVectorByMatrix(min, this.m_modelMatrix);
 
         return {
             max: new Vector3(max.x, max.y, max.z),
@@ -304,8 +299,6 @@ export class Cube {
             [tzmax, tzmin] = [tzmin, tzmax];
         }
 
-
-
         if ((tmin > tzmax) || (tzmin > tmax))
             return false;
 
@@ -325,84 +318,79 @@ export class Cube {
 
     }
 
-
-    public GetLookAtSide(camera: Camera): Float32Vector3 {
+    public GetLookAtSide(camera: Camera): LookAtSide {
 
         let ray = camera.GetCameraRay();
 
-        // throw " GetLookAtSide() not implemented";
+        let faces = {
 
-        // return new Vector3(0,0,0);
+            top: {
+                min: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z),
+                max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z),
+                midPoint: new Vector3(0, 0.5, 0)
+            },
 
-        // let x = 0, y = 0, z = 0;
+            bottom: {
+                min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+                max: new Vector3(0.5 + this.translation.x, -0.5 + this.translation.y, 0.5 + this.translation.z),
+                midPoint: new Vector3(0, -0.5, 0)
+            },
 
+            right: {
+                min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+                max: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z),
+                midPoint: new Vector3(-0.5, 0, 0)
+            },
 
-        // let { min, max } = this.GetBoundaries();
+            left: {
+                min: new Vector3(0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+                max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z),
+                midPoint: new Vector3(0.5, 0, 0)
+            },
 
-        // let tmin = (min.x - ray.origin.x) / ray.direction.x;
-        // let tmax = (max.x - ray.origin.x) / ray.direction.x;
+            front: {
+                min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
+                max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z),
+                midPoint: new Vector3(0, 0, -0.5)
+            },
 
-        // if (tmin > tmax) {
-        //     [tmin, tmax] = [tmax, tmin];
-        // }
-        // x = tmin;
-
-        // let tymin = (min.y - ray.origin.y) / ray.direction.y;
-        // let tymax = (max.y - ray.origin.y) / ray.direction.y;
-
-        // if (tymin > tymax) {
-        //     [tymin, tymax] = [tymax, tymin];
-        // }
-        // y = tymin;
-
-        // if ((tmin > tymax) || (tymin > tmax))
-        //     return new Vector3(Infinity, Infinity, Infinity);
-
-        // if (tymin > tmin)
-        //     tmin = tymin;
-
-        // if (tymax < tmax)
-        //     tmax = tymax;
-
-        // let tzmin = (min.z - ray.origin.z) / ray.direction.z;
-        // let tzmax = (max.z - ray.origin.z) / ray.direction.z;
-
-        // if (tzmin > tzmax) {
-        //     [tzmax, tzmin] = [tzmin, tzmax];
-        // }
-
-        // z = tzmin;
-
-        // if ((tmin > tzmax) || (tzmin > tmax))
-        // return new Vector3(Infinity, Infinity, Infinity);
-
-
-        // if (tzmin > tmin)
-        //     tmin = tzmin;
-
-        // if (tzmax < tmax)
-        //     tmax = tzmax;
-
-        // return new Vector3(x,y,z);
-
-
-        let topPanel = {
-            min: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z),
-            max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z)
+            rear: {
+                min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, 0.5 + this.translation.z),
+                max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z),
+                midPoint: new Vector3(0, 0, 0.5)
+            }
         };
-        
-        let leftPanel = {
-            min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
-            max: new Vector3(-0.5 + this.translation.x, 0.5 + this.translation.y, 0.5 + this.translation.z)
+
+        let intersections = [
+            { side: LookAtSide.Front, if: Cube.Intersect(ray, { min: faces.front.min, max: faces.front.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.front.midPoint) },
+            { side: LookAtSide.Rear, if: Cube.Intersect(ray, { min: faces.rear.min, max: faces.rear.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.rear.midPoint) },
+            { side: LookAtSide.Top, if: Cube.Intersect(ray, { min: faces.top.min, max: faces.top.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.top.midPoint) },
+            { side: LookAtSide.Bottom, if: Cube.Intersect(ray, { min: faces.bottom.min, max: faces.bottom.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.bottom.midPoint) },
+            { side: LookAtSide.Left, if: Cube.Intersect(ray, { min: faces.left.min, max: faces.left.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.left.midPoint) },
+            { side: LookAtSide.Right, if: Cube.Intersect(ray, { min: faces.right.min, max: faces.right.max }), distance: MyMath.CalcDistance3D(ray.origin, faces.right.midPoint) }
+        ]
+
+        let occured: number[] = [];
+
+        for (let i = 0; i < intersections.length; i++) {
+            const element = intersections[i];
+            if (element.if) {
+                occured.push(i);
+            }
         }
 
-        let frontPanel = {
-            min: new Vector3(-0.5 + this.translation.x, -0.5 + this.translation.y, -0.5 + this.translation.z),
-            max: new Vector3(0.5 + this.translation.x, 0.5 + this.translation.y, -0.5 + this.translation.z)
+        if (occured.length) {
+            let closest = intersections[occured[0]];
+            occured.forEach(idx => {
+                if (closest.distance > intersections[idx].distance) {
+                    closest = intersections[idx];
+                }
+            });
+            return closest.side;
         }
-        
 
-        return new Vector3(0,0,0);
+        return LookAtSide.None;
+
     }
 
 
