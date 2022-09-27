@@ -24,7 +24,7 @@ After successful build your files wii be located in `dist` folder, have fun !
 <br>
 
 # Where to download build
- From the [tags](https://github.com/Storm-77/WebMinecraft/tags) section
+ From the [releases](https://github.com/Storm-77/WebMinecraft/releases) section
 
 <br>
 
